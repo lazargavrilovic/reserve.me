@@ -1,6 +1,7 @@
 "use server"
 
 import { createAdminClient } from "@/lib/supabase/admin"
+import { sendBookingConfirmation } from "@/lib/email/send-booking-confirmation"
 import { randomUUID } from "crypto"
 
 export interface BookingResult {
@@ -24,7 +25,6 @@ export async function createAppointment(data: {
 }): Promise<BookingResult> {
   const admin = createAdminClient()
 
-  // Build timestamps in the business timezone
   const startISO = `${data.date}T${data.startTime}:00`
   const endISO = `${data.date}T${data.endTime}:00`
 
@@ -75,6 +75,29 @@ export async function createAppointment(data: {
     .single()
 
   if (error) return { success: false, error: error.message }
+
+  // Fetch business + service + staff names for the email
+  const [{ data: business }, { data: service }, { data: staff }] = await Promise.all([
+    admin.from("businesses").select("name, slug").eq("id", data.businessId).single(),
+    admin.from("services").select("name").eq("id", data.serviceId).single(),
+    admin.from("staff_profiles").select("display_name").eq("id", data.staffId).single(),
+  ])
+
+  // Send confirmation email (fire-and-forget — don't block the response)
+  if (process.env.RESEND_API_KEY) {
+    sendBookingConfirmation({
+      appointmentId: appointment.id,
+      icalUid,
+      clientName: data.clientName,
+      clientEmail: data.clientEmail,
+      businessName: business?.name ?? "",
+      businessSlug: business?.slug ?? "",
+      serviceName: service?.name ?? "",
+      staffName: staff?.display_name ?? "",
+      startISO,
+      endISO,
+    }).catch((err) => console.error("[Email]", err))
+  }
 
   return { success: true, appointmentId: appointment.id }
 }
