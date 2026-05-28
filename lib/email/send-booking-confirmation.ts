@@ -66,8 +66,8 @@ export async function sendBookingConfirmation(params: BookingEmailParams) {
   })
 
   const resend = getResend()
-  const { error } = await resend.emails.send({
-    from: `${params.businessName} via reserve.me <${FROM_EMAIL}>`,
+  const { data, error } = await resend.emails.send({
+    from: FROM_EMAIL,
     to: params.clientEmail,
     subject: `Confirmed: ${params.serviceName} on ${dateStr}`,
     html,
@@ -75,12 +75,14 @@ export async function sendBookingConfirmation(params: BookingEmailParams) {
     attachments: [
       {
         filename: "appointment.ics",
-        content: Buffer.from(icsContent).toString("base64"),
+        content: Buffer.from(icsContent),
       },
     ],
   })
 
   if (error) {
-    console.error("[Email] Failed to send booking confirmation:", error)
+    console.error("[Email] Failed to send booking confirmation:", JSON.stringify(error))
+  } else {
+    console.log("[Email] Sent confirmation:", data?.id)
   }
 }

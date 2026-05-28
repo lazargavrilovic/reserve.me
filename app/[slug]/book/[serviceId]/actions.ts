@@ -83,20 +83,24 @@ export async function createAppointment(data: {
     admin.from("staff_profiles").select("display_name").eq("id", data.staffId).single(),
   ])
 
-  // Send confirmation email (fire-and-forget — don't block the response)
+  // Send confirmation email
   if (process.env.RESEND_API_KEY) {
-    sendBookingConfirmation({
-      appointmentId: appointment.id,
-      icalUid,
-      clientName: data.clientName,
-      clientEmail: data.clientEmail,
-      businessName: business?.name ?? "",
-      businessSlug: business?.slug ?? "",
-      serviceName: service?.name ?? "",
-      staffName: staff?.display_name ?? "",
-      startISO,
-      endISO,
-    }).catch((err) => console.error("[Email]", err))
+    try {
+      await sendBookingConfirmation({
+        appointmentId: appointment.id,
+        icalUid,
+        clientName: data.clientName,
+        clientEmail: data.clientEmail,
+        businessName: business?.name ?? "",
+        businessSlug: business?.slug ?? "",
+        serviceName: service?.name ?? "",
+        staffName: staff?.display_name ?? "",
+        startISO,
+        endISO,
+      })
+    } catch (err) {
+      console.error("[Email] Exception:", err)
+    }
   }
 
   return { success: true, appointmentId: appointment.id }
