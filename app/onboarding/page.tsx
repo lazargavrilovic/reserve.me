@@ -31,7 +31,7 @@ export default async function OnboardingPage() {
             This takes 2 minutes. You can change everything later.
           </p>
         </div>
-        <OnboardingForm userId={user.id} />
+        <OnboardingForm />
       </div>
     </div>
   )

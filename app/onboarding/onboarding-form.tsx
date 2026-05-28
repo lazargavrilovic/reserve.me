@@ -1,98 +1,33 @@
 "use client"
 
-import { useState } from "react"
-import { useRouter } from "next/navigation"
+import { useFormState, useFormStatus } from "react-dom"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent } from "@/components/ui/card"
-import { createClient } from "@/lib/supabase/client"
+import { createBusiness } from "./actions"
 import { slugify } from "@/lib/utils"
-
-interface Props {
-  userId: string
-}
+import { useState } from "react"
 
 const TIMEZONES = Intl.supportedValuesOf("timeZone")
 
-export function OnboardingForm({ userId }: Props) {
-  const router = useRouter()
-  const [businessName, setBusinessName] = useState("")
+const initialState = { error: null as string | null }
+
+export function OnboardingForm() {
+  const [state, formAction] = useFormState(createBusiness, initialState)
   const [slug, setSlug] = useState("")
-  const [timezone, setTimezone] = useState(
-    Intl.DateTimeFormat().resolvedOptions().timeZone
-  )
-  const [error, setError] = useState<string | null>(null)
-  const [loading, setLoading] = useState(false)
-
-  function handleNameChange(value: string) {
-    setBusinessName(value)
-    setSlug(slugify(value))
-  }
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    setError(null)
-    setLoading(true)
-
-    if (!slug) {
-      setError("Business name is required.")
-      setLoading(false)
-      return
-    }
-
-    const supabase = createClient()
-
-    // Create the business
-    const { data: business, error: bizError } = await supabase
-      .from("businesses")
-      .insert({ name: businessName, slug, timezone })
-      .select("id")
-      .single()
-
-    if (bizError) {
-      setError(
-        bizError.code === "23505"
-          ? "That URL slug is already taken. Try a different business name."
-          : bizError.message
-      )
-      setLoading(false)
-      return
-    }
-
-    // Add owner membership
-    const { error: memberError } = await supabase
-      .from("business_members")
-      .insert({ business_id: business.id, user_id: userId, role: "owner" })
-
-    if (memberError) {
-      setError(memberError.message)
-      setLoading(false)
-      return
-    }
-
-    // Create a staff profile for the owner so they appear as staff by default
-    await supabase.from("staff_profiles").insert({
-      business_id: business.id,
-      user_id: userId,
-      display_name: businessName,
-    })
-
-    router.push("/dashboard")
-    router.refresh()
-  }
 
   return (
     <Card>
       <CardContent className="pt-6">
-        <form onSubmit={handleSubmit} className="space-y-5">
+        <form action={formAction} className="space-y-5">
           <div className="space-y-2">
             <Label htmlFor="business-name">Business name</Label>
             <Input
               id="business-name"
-              placeholder="Sarah&apos;s Nail Studio"
-              value={businessName}
-              onChange={(e) => handleNameChange(e.target.value)}
+              name="businessName"
+              placeholder="Sarah's Nail Studio"
+              onChange={(e) => setSlug(slugify(e.target.value))}
               required
             />
           </div>
@@ -103,6 +38,7 @@ export function OnboardingForm({ userId }: Props) {
               <span className="text-muted-foreground select-none">reserve.me/</span>
               <input
                 id="slug"
+                name="slug"
                 className="flex-1 bg-transparent outline-none ml-0.5 font-medium"
                 value={slug}
                 onChange={(e) => setSlug(slugify(e.target.value))}
@@ -117,8 +53,8 @@ export function OnboardingForm({ userId }: Props) {
             <Label htmlFor="timezone">Timezone</Label>
             <select
               id="timezone"
-              value={timezone}
-              onChange={(e) => setTimezone(e.target.value)}
+              name="timezone"
+              defaultValue={Intl.DateTimeFormat().resolvedOptions().timeZone}
               className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
             >
               {TIMEZONES.map((tz) => (
@@ -127,13 +63,22 @@ export function OnboardingForm({ userId }: Props) {
             </select>
           </div>
 
-          {error && <p className="text-sm text-destructive">{error}</p>}
+          {state?.error && (
+            <p className="text-sm text-destructive">{state.error}</p>
+          )}
 
-          <Button type="submit" className="w-full" disabled={loading}>
-            {loading ? "Creating your business…" : "Continue to dashboard"}
-          </Button>
+          <SubmitButton />
         </form>
       </CardContent>
     </Card>
+  )
+}
+
+function SubmitButton() {
+  const { pending } = useFormStatus()
+  return (
+    <Button type="submit" className="w-full" disabled={pending}>
+      {pending ? "Creating your business…" : "Continue to dashboard"}
+    </Button>
   )
 }
