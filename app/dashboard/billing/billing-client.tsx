@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useState } from "react"
 import Script from "next/script"
 import { CheckCircle2, Zap, Star } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -77,7 +77,7 @@ export function BillingClient({
   userEmail,
   status,
   plan,
-  hasSubscription,
+  hasSubscription: _hasSubscription,
 }: Props) {
   const [paddleReady, setPaddleReady] = useState(false)
   const [loading, setLoading] = useState<string | null>(null)
