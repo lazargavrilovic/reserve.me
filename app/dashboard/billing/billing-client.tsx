@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Script from "next/script"
 import { CheckCircle2, Zap, Star } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -90,6 +90,12 @@ export function BillingClient({
     setPaddleReady(true)
   }
 
+  // Fallback: if script was already loaded before this component mounted
+  useEffect(() => {
+    if (window.Paddle) initPaddle()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   function openCheckout(priceId: string, planKey: string) {
     if (!window.Paddle) return
     setLoading(planKey)
@@ -119,7 +125,7 @@ export function BillingClient({
       {/* Load Paddle.js */}
       <Script
         src="https://cdn.paddle.com/paddle/v2/paddle.js"
-        onLoad={initPaddle}
+        onReady={initPaddle}
       />
 
       <div className="space-y-8 max-w-3xl">
