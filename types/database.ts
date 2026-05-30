@@ -19,9 +19,10 @@ export type BusinessRow = {
   description: string | null
   logo_url: string | null
   timezone: string
-  stripe_customer_id: string | null
-  stripe_subscription_id: string | null
+  paddle_customer_id: string | null
+  paddle_subscription_id: string | null
   subscription_status: SubscriptionStatus
+  subscription_plan: string
   created_at: string
 }
 
@@ -135,9 +136,10 @@ export interface Database {
           description?: string | null
           logo_url?: string | null
           timezone?: string
-          stripe_customer_id?: string | null
-          stripe_subscription_id?: string | null
+          paddle_customer_id?: string | null
+          paddle_subscription_id?: string | null
           subscription_status?: SubscriptionStatus
+          subscription_plan?: string
           created_at?: string
         }
         Update: {
@@ -147,9 +149,10 @@ export interface Database {
           description?: string | null
           logo_url?: string | null
           timezone?: string
-          stripe_customer_id?: string | null
-          stripe_subscription_id?: string | null
+          paddle_customer_id?: string | null
+          paddle_subscription_id?: string | null
           subscription_status?: SubscriptionStatus
+          subscription_plan?: string
           created_at?: string
         }
         Relationships: []
