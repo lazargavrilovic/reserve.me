@@ -7,7 +7,6 @@ import {
   Scissors,
   Users,
   Settings,
-  CreditCard,
   ExternalLink,
   LayoutDashboard,
 } from "lucide-react"
@@ -19,7 +18,6 @@ const NAV_ITEMS = [
   { href: "/dashboard/services", label: "Services", icon: Scissors },
   { href: "/dashboard/staff", label: "Staff", icon: Users },
   { href: "/dashboard/settings", label: "Settings", icon: Settings },
-  { href: "/dashboard/billing", label: "Billing", icon: CreditCard },
 ]
 
 interface Props {
