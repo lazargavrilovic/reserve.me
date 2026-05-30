@@ -77,7 +77,6 @@ export function BillingClient({
   userEmail,
   status,
   plan,
-  hasSubscription: _hasSubscription,
 }: Props) {
   const [paddleReady, setPaddleReady] = useState(false)
   const [loading, setLoading] = useState<string | null>(null)
