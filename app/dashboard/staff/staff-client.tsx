@@ -1,7 +1,8 @@
 "use client"
 
-import { useState } from "react"
-import { Pencil, Trash2, Plus, Clock, Link2, Check } from "lucide-react"
+import { useState, Suspense } from "react"
+import { useSearchParams } from "next/navigation"
+import { Pencil, Trash2, Plus, Clock, Link2, Check, Calendar } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { StaffDialog } from "./staff-dialog"
@@ -18,6 +19,8 @@ interface StaffWithAvailability extends StaffProfileRow {
 interface Props {
   staff: StaffWithAvailability[]
 }
+
+// ── iCal copy button ──────────────────────────────────────────────────────────
 
 function CopyIcalButton({ token }: { token: string }) {
   const [copied, setCopied] = useState(false)
@@ -36,43 +39,73 @@ function CopyIcalButton({ token }: { token: string }) {
       size="sm"
       className="flex-1 text-xs"
       onClick={handleCopy}
-      title="Copy iCal subscription URL — paste into Google Calendar, Apple Calendar, or Outlook"
+      title="Copy iCal subscription URL"
     >
       {copied ? (
-        <>
-          <Check className="w-3.5 h-3.5 mr-1.5 text-emerald-600" />
-          Copied!
-        </>
+        <><Check className="w-3.5 h-3.5 mr-1.5 text-emerald-600" />Copied!</>
       ) : (
-        <>
-          <Link2 className="w-3.5 h-3.5 mr-1.5" />
-          iCal link
-        </>
+        <><Link2 className="w-3.5 h-3.5 mr-1.5" />iCal link</>
       )}
     </Button>
   )
 }
 
+// ── Google Calendar connect button ────────────────────────────────────────────
+
+function ConnectGoogleButton({ staffId, connected }: { staffId: string; connected: boolean }) {
+  if (connected) {
+    return (
+      <Button variant="ghost" size="sm" className="flex-1 text-xs text-emerald-600" disabled>
+        <Check className="w-3.5 h-3.5 mr-1.5" />
+        Google linked
+      </Button>
+    )
+  }
+  return (
+    <Button
+      variant="ghost"
+      size="sm"
+      className="flex-1 text-xs"
+      onClick={() => { window.location.href = `/api/auth/google?staffId=${staffId}` }}
+      title="Connect Google Calendar — appointments will sync automatically"
+    >
+      <Calendar className="w-3.5 h-3.5 mr-1.5" />
+      Connect Google
+    </Button>
+  )
+}
+
+// ── Success / error banner (reads ?gcal= URL param) ───────────────────────────
+
+function GCalBanner() {
+  const params = useSearchParams()
+  const gcal = params.get("gcal")
+  if (!gcal) return null
+
+  return (
+    <div className={`rounded-md px-4 py-3 text-sm font-medium ${
+      gcal === "connected"
+        ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+        : "bg-red-50 text-red-700 border border-red-200"
+    }`}>
+      {gcal === "connected"
+        ? "✓ Google Calendar connected — appointments will now sync automatically."
+        : "✗ Failed to connect Google Calendar. Please try again."}
+    </div>
+  )
+}
+
+// ── Main component ────────────────────────────────────────────────────────────
+
 export function StaffClient({ staff }: Props) {
   const [dialogOpen, setDialogOpen] = useState(false)
-  const [availOpen, setAvailOpen] = useState(false)
-  const [editing, setEditing] = useState<StaffProfileRow | null>(null)
+  const [availOpen,  setAvailOpen]  = useState(false)
+  const [editing,    setEditing]    = useState<StaffProfileRow | null>(null)
   const [availStaff, setAvailStaff] = useState<StaffWithAvailability | null>(null)
 
-  function openCreate() {
-    setEditing(null)
-    setDialogOpen(true)
-  }
-
-  function openEdit(member: StaffProfileRow) {
-    setEditing(member)
-    setDialogOpen(true)
-  }
-
-  function openAvailability(member: StaffWithAvailability) {
-    setAvailStaff(member)
-    setAvailOpen(true)
-  }
+  function openCreate() { setEditing(null); setDialogOpen(true) }
+  function openEdit(m: StaffProfileRow) { setEditing(m); setDialogOpen(true) }
+  function openAvailability(m: StaffWithAvailability) { setAvailStaff(m); setAvailOpen(true) }
 
   return (
     <>
@@ -89,6 +122,11 @@ export function StaffClient({ staff }: Props) {
         </Button>
       </div>
 
+      {/* Google Calendar connection notification */}
+      <Suspense fallback={null}>
+        <GCalBanner />
+      </Suspense>
+
       {staff.length === 0 ? (
         <div className="rounded-lg border border-dashed p-12 text-center mt-6">
           <p className="text-muted-foreground text-sm">No staff members yet.</p>
@@ -101,15 +139,14 @@ export function StaffClient({ staff }: Props) {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mt-6">
           {staff.map((member) => (
             <div key={member.id} className="rounded-lg border bg-card p-5 space-y-3">
-              <div className="flex items-start justify-between">
-                <div>
-                  <p className="font-semibold">{member.display_name}</p>
-                  {member.bio && (
-                    <p className="text-sm text-muted-foreground mt-0.5">{member.bio}</p>
-                  )}
-                </div>
+              <div>
+                <p className="font-semibold">{member.display_name}</p>
+                {member.bio && (
+                  <p className="text-sm text-muted-foreground mt-0.5">{member.bio}</p>
+                )}
               </div>
 
+              {/* Availability day badges */}
               <div className="flex items-center gap-1.5 flex-wrap">
                 {member.availability.length > 0 ? (
                   member.availability
@@ -124,50 +161,50 @@ export function StaffClient({ staff }: Props) {
                 )}
               </div>
 
-              <div className="flex items-center gap-1 pt-1 border-t">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="flex-1 text-xs"
-                  onClick={() => openAvailability(member)}
-                >
-                  <Clock className="w-3.5 h-3.5 mr-1.5" />
-                  Set hours
-                </Button>
+              {/* Action buttons */}
+              <div className="flex flex-col gap-1 pt-1 border-t">
+                {/* Row 1: Set hours + iCal link */}
+                <div className="flex items-center gap-1">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="flex-1 text-xs"
+                    onClick={() => openAvailability(member)}
+                  >
+                    <Clock className="w-3.5 h-3.5 mr-1.5" />
+                    Set hours
+                  </Button>
+                  {member.ical_feed_url && (
+                    <CopyIcalButton token={member.ical_feed_url} />
+                  )}
+                </div>
 
-                {member.ical_feed_url && (
-                  <CopyIcalButton token={member.ical_feed_url} />
-                )}
-
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => openEdit(member)}
-                >
-                  <Pencil className="w-4 h-4" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => {
-                    if (confirm(`Remove "${member.display_name}"?`)) {
-                      deleteStaff(member.id)
-                    }
-                  }}
-                >
-                  <Trash2 className="w-4 h-4 text-destructive" />
-                </Button>
+                {/* Row 2: Google Calendar + edit + delete */}
+                <div className="flex items-center gap-1">
+                  <ConnectGoogleButton
+                    staffId={member.id}
+                    connected={!!member.google_calendar_token}
+                  />
+                  <Button variant="ghost" size="icon" onClick={() => openEdit(member)}>
+                    <Pencil className="w-4 h-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => {
+                      if (confirm(`Remove "${member.display_name}"?`)) deleteStaff(member.id)
+                    }}
+                  >
+                    <Trash2 className="w-4 h-4 text-destructive" />
+                  </Button>
+                </div>
               </div>
             </div>
           ))}
         </div>
       )}
 
-      <StaffDialog
-        open={dialogOpen}
-        onClose={() => setDialogOpen(false)}
-        staff={editing}
-      />
+      <StaffDialog open={dialogOpen} onClose={() => setDialogOpen(false)} staff={editing} />
 
       {availStaff && (
         <AvailabilityEditor

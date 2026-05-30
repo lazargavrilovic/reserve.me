@@ -2,6 +2,7 @@
 
 import { createAdminClient } from "@/lib/supabase/admin"
 import { sendBookingConfirmation } from "@/lib/email/send-booking-confirmation"
+import { createCalendarEvent, type GoogleTokens } from "@/lib/google/calendar"
 import { randomUUID } from "crypto"
 
 export interface BookingResult {
@@ -76,11 +77,11 @@ export async function createAppointment(data: {
 
   if (error) return { success: false, error: error.message }
 
-  // Fetch business + service + staff names for the email
+  // Fetch business + service + staff (including Google Calendar token)
   const [{ data: business }, { data: service }, { data: staff }] = await Promise.all([
     admin.from("businesses").select("name, slug").eq("id", data.businessId).single(),
     admin.from("services").select("name").eq("id", data.serviceId).single(),
-    admin.from("staff_profiles").select("display_name").eq("id", data.staffId).single(),
+    admin.from("staff_profiles").select("display_name, google_calendar_token").eq("id", data.staffId).single(),
   ])
 
   // Send confirmation email
@@ -100,6 +101,35 @@ export async function createAppointment(data: {
       })
     } catch (err) {
       console.error("[Email] Exception:", err)
+    }
+  }
+
+  // Sync to Google Calendar if the staff member has connected their account
+  if (staff?.google_calendar_token) {
+    try {
+      const tokens = staff.google_calendar_token as unknown as GoogleTokens
+      const descParts = [
+        `Client: ${data.clientName}`,
+        `Email: ${data.clientEmail}`,
+        data.clientPhone ? `Phone: ${data.clientPhone}` : null,
+        data.notes       ? `Notes: ${data.notes}`       : null,
+      ].filter(Boolean) as string[]
+
+      const eventId = await createCalendarEvent(tokens, {
+        summary:     `${service?.name ?? "Appointment"} — ${data.clientName}`,
+        description: descParts.join("\n"),
+        startISO,
+        endISO,
+      })
+
+      if (eventId) {
+        await admin
+          .from("appointments")
+          .update({ google_event_id: eventId })
+          .eq("id", appointment.id)
+      }
+    } catch (err) {
+      console.error("[Google Calendar] Failed to create event:", err)
     }
   }
 
